@@ -39,33 +39,102 @@ def detect_colors(frame):
     return detected_colors
 
 # Function to display the camera feed
+# Mouse callback function to detect color at clicked point
+# Function to map RGB values to color name
+def get_color_name(r, g, b):
+    # Convert to HSV
+    hsv = cv2.cvtColor(np.uint8([[[b, g, r]]]), cv2.COLOR_BGR2HSV)
+    h, s, v = hsv[0][0]
+    
+    # Define color ranges in HSV space
+    # Function to map RGB values to color name
+def get_color_name(r, g, b):
+    # Convert to HSV
+    hsv = cv2.cvtColor(np.uint8([[[b, g, r]]]), cv2.COLOR_BGR2HSV)
+    h, s, v = hsv[0][0]
+    
+    # Define color ranges in HSV space
+    # Function to map RGB values to color name
+def get_color_name(r, g, b):
+    hsv = cv2.cvtColor(np.uint8([[[b, g, r]]]), cv2.COLOR_BGR2HSV)
+    h, s, v = hsv[0][0]
+
+    if (h <= 9 or h >= 170) and s >= 100 and v >= 100:
+        return "Red"
+    elif 10 <= h <= 25 and s >= 100 and v >= 100:
+        return "Orange"
+    elif 26 <= h <= 35 and s >= 100 and v >= 100:
+        return "Yellow"
+    elif 36 <= h <= 85 and s >= 50:
+        return "Green"
+    elif 86 <= h <= 125 and s >= 50:
+        return "Blue"
+    elif 130 <= h <= 160 and s >= 50:
+        return "Purple"
+    else:
+        return "Unknown"
+
+
+
+# Function to detect the color at the clicked point
+def click_color(event, x, y, flags, param):
+    if event == cv2.EVENT_LBUTTONDOWN:
+        frame = param['frame']
+        if frame is not None:
+            b, g, r = frame[y, x]
+            color_name = get_color_name(r, g, b)
+            
+            if(color_name != "Unknown"):
+                
+
+                # Debugging output
+                hsv = cv2.cvtColor(np.uint8([[[b, g, r]]]), cv2.COLOR_BGR2HSV)
+                h, s, v = hsv[0][0]
+                print(f"Clicked at ({x},{y}) - Color: {color_name} (HSV: H={h}, S={s}, V={v})")
+
+                # Save to text file
+                with open("clicked_colors.txt", "a") as file:
+                    file.write(f"Clicked at ({x},{y}) - Color: {color_name} (R={r}, G={g}, B={b})\n")
+
+                # Draw label on the frame
+                cv2.rectangle(frame, (x, y - 20), (x + 150, y), (0, 0, 0), -1)
+                cv2.putText(frame, color_name, (x, y - 5), cv2.FONT_HERSHEY_SIMPLEX, 0.5, (255, 255, 255), 1)
+
+
+
+
+
+# Function to display the camera feed with color detection
 def show_camera():
-    color_logged = False  # Flag to control one-time logging
+    color_logged = False
+    params = {'frame': None}
+    cv2.namedWindow("Tello Camera")
+    cv2.setMouseCallback("Tello Camera", click_color, params)
 
     while True:
         frame = drone.get_frame_read().frame
         if frame is not None:
+            params['frame'] = frame.copy()  # Pass a copy to avoid draw-on-frame issues
             detected_colors = detect_colors(frame)
 
-            # Check if 'F' is pressed and log only once per press
+            # Log on 'F' key press
             if keyboard.is_pressed('f') and not color_logged:
                 if detected_colors:
                     print(f"Detected Colors: {', '.join(detected_colors)}")
                     with open("detected_colors.txt", "a") as file:
                         file.write(f"Detected Colors: {', '.join(detected_colors)}\n")
-                    color_logged = True  # Prevent further logs until key is released
+                    color_logged = True
 
-            # Reset flag when 'F' is released
             if not keyboard.is_pressed('f'):
                 color_logged = False
 
             cv2.imshow("Tello Camera", frame)
 
-        # Press 'Y' to close the camera feed
         if cv2.waitKey(1) & 0xFF == ord('y'):
             break
 
     cv2.destroyAllWindows()
+
 
 try:
     drone.connect()
@@ -99,13 +168,13 @@ try:
             drone.send_rc_control(0, 0, 0, 0)  # Emergency stop
 
         elif keyboard.is_pressed('w'):
-            drone.send_rc_control(0, 35, 0, 0)
+            drone.send_rc_control(0, 25, 0, 0)
         elif keyboard.is_pressed('a'):
-            drone.send_rc_control(-35, 0, 0, 0)
+            drone.send_rc_control(-25, 0, 0, 0)
         elif keyboard.is_pressed('s'):
-            drone.send_rc_control(0, -35, 0, 0)
+            drone.send_rc_control(0, -25, 0, 0)
         elif keyboard.is_pressed('d'):
-            drone.send_rc_control(35, 0, 0, 0)
+            drone.send_rc_control(25, 0, 0, 0)
         elif keyboard.is_pressed('space'):
             drone.send_rc_control(0, 0, 20, 0)
         elif keyboard.is_pressed('shift'):
@@ -114,6 +183,10 @@ try:
             drone.rotate_counter_clockwise(45)
         elif keyboard.is_pressed('e'):
             drone.rotate_clockwise(45)
+        elif keyboard.is_pressed('tab'):
+            drone.rotate_counter_clockwise(15)
+        elif keyboard.is_pressed('r'):
+            drone.rotate_clockwise(15)
         elif keyboard.is_pressed('c'):
             drone.rotate_clockwise(360)
         elif keyboard.is_pressed('v'):
